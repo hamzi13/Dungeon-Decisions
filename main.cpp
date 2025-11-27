@@ -36,6 +36,8 @@ void visitShop(int &gold, int &potions);
 void showStats();
 void saveGame();
 void healPlayer(int &health, int &maxHealth, int &potions);
+void applyDamage(int *targetHP, int damage);
+int recursiveMagic(int powerLevel);
 
 int main()
 {
@@ -92,6 +94,36 @@ void showMainMenu()
     cout << "Enter your choice: ";
 }
 
+void applyDamage(int *targetHP, int damage)
+{
+    *targetHP -= damage;
+    if (*targetHP < 0)
+    {
+        *targetHP = 0;
+    }
+}
+
+int recursiveMagic(int powerlevel)
+{
+    // Base Case: If level is 0, damage is 0
+    if (powerlevel <= 0)
+    {
+        return 0;
+    }
+    return 5 + recursiveMagic(powerlevel - 1);
+}
+
+bool checkCritical(int *damage)
+{
+    // 20% chance to double damage
+    if (rand() % 5 == 0)
+    {
+        *damage = *damage * 2; // Modify the value at the address
+        return true;
+    }
+    return false;
+}
+
 void startCombat()
 {
     cout << "\n--- Combat Started ---\n\n";
@@ -121,7 +153,7 @@ void startCombat()
     {
         cout << "\nYour HP: " << pHealth << " | Potions: " << pPotions << "\n";
         cout << eName << "'s HP: " << eHP << "\n";
-        cout << "Actions: [1] Attack  [2] Use Potion  [3] Run\n";
+        cout << "Actions: [1] Attack  [2] Use Potion  [3] Run  [4] Ancient Magic\n";
 
         int action;
         cout << ">>... ";
@@ -130,7 +162,12 @@ void startCombat()
         if (action == 1)
         {
             int damage = pAttack + (rand() % 5); // Random bonus damage between 0-4
-            eHP -= damage;
+            if (checkCritical(&damage))
+            {
+                cout << "CRITICAL HIT!\n";
+            }
+
+            applyDamage(&eHP, damage);
             cout << "You dealt " << damage << " damage to the " << eName << "!\n";
         }
         else if (action == 2)
@@ -162,6 +199,21 @@ void startCombat()
                 cout << "You failed to run away!\n";
             }
         }
+        else if (action == 4)
+        {
+            if (pBattlesWon > 1)
+            {
+                int magicDamage = recursiveMagic(pBattlesWon);
+
+                applyDamage(&eHP, magicDamage);
+                cout << "You cast Ancient Magic dealing " << magicDamage << " damage!\n";
+            }
+            else
+            {
+                cout << "You try to cast magic, but you are too inexperienced!\n";
+            }
+        }
+
         else
         {
             cout << "You hesitated (Inavild Input)...\n";
@@ -250,7 +302,28 @@ void visitShop(int &gold, int &potions)
 void healPlayer(int &health, int &maxHealth, int &potions)
 {
     cout << "\n--- Healing ---\n\n";
-    // Healing logic will go here
+    if (health > maxHealth)
+    {
+        cout << "You are already at full health! Save your potion\n";
+        return;
+    }
+
+    if (potions > 0)
+    {
+        health += 30;
+        potions--;
+
+        if (health > maxHealth)
+        {
+            health = maxHealth;
+        }
+
+        cout << "You drank a potion! Health is now  " << health << "\n";
+    }
+    else
+    {
+        cout << "You have no potions left! Go to shop to buy more.\n";
+    }
 }
 
 void showStats()
