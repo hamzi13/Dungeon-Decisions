@@ -2,9 +2,8 @@
 #include <string>
 #include <cstdlib> // For rand() and srand()
 #include <ctime>   // For time()
-#include <thread> // For pausing the program
-#include <chrono> // For measuring seconds
 #include <windows.h>
+#include <fstream> // For file operations
 
 using namespace std;
 
@@ -16,7 +15,6 @@ int pDefense = 5;
 int pGold = 50;
 int pPotions = 1;
 int pScore = 0;
-int highScore = 0; // We will load this from a file LATER
 int pBattlesWon = 0;
 int pStreak = 0;
 
@@ -45,15 +43,20 @@ int recursiveMagic(int powerLevel);
 bool checkCritical(int *damage);
 void trainPlayer(int *attack, int *maxHealth, int *health, int &gold);
 void campRest(int *currentHP, int maxHP, int *streak, int *battlesWon);
+void loadGame();
+void updateHighScore();
 
 int main()
 {
     srand(time(0));
+    loadGame(); // Load player stats from save file
+
     int choice;
     bool isRunning = true;
     cout << "\n======================================\n";
     cout << "    Welcome to Dungeon Decisions!\n";
     cout << "======================================\n";
+    Sleep(600);
 
     while (isRunning)
     {
@@ -99,13 +102,21 @@ int main()
 void showMainMenu()
 {
     cout << "\n--- Main Menu ---" << "\n\n";
+    Sleep(500);
     cout << "1. Start Combat (Hunt)" << endl;
+    Sleep(130);
     cout << "2. Visit Shop" << endl;
+    Sleep(130);
     cout << "3. View Stats" << endl;
+    Sleep(130);
     cout << "4. Drink Potion (Inventory)" << endl;
-    cout << "5. Rest at Campfire (Requires Streak)" << endl;
+    Sleep(130);
+    cout << "5. Rest at Campfire (Requires Streak of 2)" << endl;
+    Sleep(130);
     cout << "6. Training Camp" << endl;
+    Sleep(130);
     cout << "7. Save Game & Exit" << "\n\n";
+    Sleep(130);
     cout << "Enter your choice: ";
 }
 
@@ -125,7 +136,7 @@ int recursiveMagic(int powerlevel)
     {
         return 0;
     }
-    return 5 + recursiveMagic(powerlevel - 1);
+    return 10 + recursiveMagic(powerlevel - 1);
 }
 
 bool checkCritical(int *damage)
@@ -141,6 +152,7 @@ bool checkCritical(int *damage)
 
 void startCombat()
 {
+    int magicUses = 2;
     cout << "\n--- Combat Started ---\n\n";
     int enemyIndex;
     if (pBattlesWon < 3)
@@ -165,12 +177,15 @@ void startCombat()
     cout << "A wild " << eName << " appeared..." << endl;
     cout << "   HP: " << eHP << " | Attack: " << eATK << "\n";
     cout << "--------------------------------------\n";
+    Sleep(600);
 
     while (pHealth > 0 && eHP > 0)
     {
         cout << "\nYour HP: " << pHealth << " | Potions: " << pPotions << "\n";
+        Sleep(250);
         cout << eName << "'s HP: " << eHP << "\n";
-        cout << "Actions: [1] Attack  [2] Use Potion  [3] Run  [4] Ancient Magic\n";
+        Sleep(250);
+        cout << "Actions: [1] Attack  [2] Use Potion  [3] Run  [4] Ancient Magic (2 uses/battle)\n";
 
         int action;
         cout << ">>... ";
@@ -186,6 +201,7 @@ void startCombat()
 
             applyDamage(&eHP, damage);
             cout << "You dealt " << damage << " damage to the " << eName << "!\n";
+            Sleep(300);
         }
         else if (action == 2)
         {
@@ -198,6 +214,9 @@ void startCombat()
                 }
                 pPotions--;
                 cout << "You used a potion and restored 30 HP!\n";
+                cout << "Current HP: " << pHealth << "/" << pMaxHealth << "\n";
+                cout << "Potions left: " << pPotions << "\n";
+                Sleep(600);
             }
             else
             {
@@ -208,32 +227,45 @@ void startCombat()
         {
             if (rand() % 2 == 0)
             {
-                cout << "You successfully ran away!\n";
+                cout << "You successfully ran away! (Streak Reset)\n";
+                pStreak = 0;
+                Sleep(550);
                 return;
             }
             else
             {
                 cout << "You failed to run away!\n";
+                Sleep(300);
             }
         }
         else if (action == 4)
         {
             if (pBattlesWon > 1)
             {
-                int magicDamage = recursiveMagic(pBattlesWon);
-
-                applyDamage(&eHP, magicDamage);
-                cout << "You cast Ancient Magic dealing " << magicDamage << " damage!\n";
+                if (magicUses > 0)
+                {
+                    int magicDamage = recursiveMagic(pBattlesWon);
+                    applyDamage(&eHP, magicDamage);
+                    cout << "You cast Ancient Magic dealing " << magicDamage << " damage!\n";
+                    magicUses--;
+                    Sleep(500);
+                }
+                else
+                {
+                    cout << "You are out of magical energy for this battle!\n";
+                }
             }
             else
             {
                 cout << "You try to cast magic, but you are too inexperienced!\n";
+                Sleep(500);
             }
         }
 
         else
         {
             cout << "You hesitated (Inavild Input)...\n";
+            Sleep(500);
         }
 
         if (eHP > 0)
@@ -241,19 +273,48 @@ void startCombat()
             int enemyDamage = eATK + (rand() % 5);
             pHealth -= enemyDamage;
             cout << "The " << eName << " attacked you for " << enemyDamage << " damage!\n";
+            Sleep(400);
         }
     }
 
     if (pHealth <= 0)
     {
         cout << "\nYou have been defeated by the " << eName << "...\n";
+        Sleep(600);
+        updateHighScore();
+        cout << "Deleting save file...\n";
+        Sleep(1000);
+
+        // ofstream scoreFile("highscore.txt");
+        // if (scoreFile.is_open())
+        // {
+        //     scoreFile << "Your final score: " << pScore << "\n";
+        //     scoreFile << "Level reached: " << pBattlesWon << "\n";
+        //     scoreFile.close();
+
+        //     cout << "Your score (" << pScore << ") has been recorded in 'highscore.txt'.\n";
+
+        //     remove("dungeon_save.txt");
+        // }
+
+        if (remove("dungeon_save.txt") == 0)
+        {
+            cout << "Save file deleted. Your legacy ends here.\n";
+        }
+        else
+        {
+            cout << "No save file found to delete!\n";
+        }
+        Sleep(1000);
         cout << "Game Over!\n";
+        Sleep(1000);
         exit(0);
         pHealth = 0;
     }
     else
     {
-        cout << "VICTORY!! You defeated the " << eName << "!\n";
+        cout << "\nVICTORY!! You defeated the " << eName << "!\n";
+        Sleep(600);
         int goldEarned = 10 + (enemyIndex * 5) + (pBattlesWon * 5); // Earn more gold for tougher enemies
         pGold += goldEarned;
         pScore += 20 + (enemyIndex * 10);
@@ -263,6 +324,7 @@ void startCombat()
 
         cout << "You earned " << goldEarned << " gold!\n";
         cout << "Current Win Streak: " << pStreak << "\n";
+        Sleep(800);
     }
 }
 
@@ -271,15 +333,20 @@ void visitShop(int &gold, int &potions)
     cout << "\n--------------------------------------\n";
     cout << "          THE TRAVELING MERCHANT       ";
     cout << "\n--------------------------------------\n";
+    Sleep(700);
     cout << " 'Got some rare things on sale, stranger!'\n\n";
+    Sleep(300);
 
     while (true)
     {
         cout << "You have: " << gold << " Gold\n";
         cout << "Potions:  " << potions << "\n\n";
+        Sleep(500);
 
         cout << "1. Buy Health Potion (40 Gold)\n";
+        Sleep(130);
         cout << "2. Upgrade Sword (+5 Attack) (100 Gold)\n";
+        Sleep(130);
         cout << "3. Leave Shop\n";
         int shopChoice;
         cout << ">>... ";
@@ -292,10 +359,12 @@ void visitShop(int &gold, int &potions)
                 potions++;
                 gold -= 40;
                 cout << "You bought a Health Potion!\n";
+                Sleep(400);
             }
             else
             {
                 cout << "Not enough gold!\n";
+                Sleep(400);
             }
             break;
         case 2:
@@ -304,24 +373,30 @@ void visitShop(int &gold, int &potions)
                 pAttack += 5;
                 gold -= 100;
                 cout << "You upgraded your sword! Attack is now " << pAttack << ".\n";
+                Sleep(400);
             }
             else
             {
                 cout << "Not enough gold!\n";
+                Sleep(400);
             }
             break;
         case 3:
             cout << "You leave the shop.\n";
+            Sleep(400);
             return;
         default:
             cout << "Invalid choice. Enter again\n";
+            Sleep(200);
             break;
         }
     }
 }
 
-void campRest(int *currentHP, int maxHP, int *streak, int *battlesWon){
+void campRest(int *currentHP, int maxHP, int *streak, int *battlesWon)
+{
     cout << "\n----   THE CAMPFIRE   ----\n\n";
+    Sleep(300);
 
     if (*streak < 2)
     {
@@ -331,7 +406,7 @@ void campRest(int *currentHP, int maxHP, int *streak, int *battlesWon){
     }
 
     cout << "You rest by the fire...\n";
-    Sleep(2500); // Pause for 2 seconds to simulate resting
+    Sleep(2000); // Pause for 2 seconds to simulate resting
 
     int healAmount = maxHP / 2;
     *currentHP += healAmount;
@@ -341,7 +416,11 @@ void campRest(int *currentHP, int maxHP, int *streak, int *battlesWon){
     }
 
     cout << "You wake up feeling refreshed! You restored " << healAmount << " HP.\n";
-    cout << "BUT time has passed... The enemies have grown stronger!\n";
+    Sleep(500);
+    cout << "Current HP: " << *currentHP << "/" << maxHP << "\n";
+    Sleep(500);
+    cout << "BUT time has passed... The enemies have grown stronger!\n\n";
+    Sleep(500);
 
     (*battlesWon)++;
     *streak = 0;
@@ -353,6 +432,7 @@ void healPlayer(int &health, int &maxHealth, int &potions)
     if (health >= maxHealth)
     {
         cout << "You are already at full health! Save your potion\n";
+        Sleep(500);
         return;
     }
 
@@ -367,24 +447,50 @@ void healPlayer(int &health, int &maxHealth, int &potions)
         }
 
         cout << "You drank a potion! Health: " << health << "/" << maxHealth << "\n";
+        cout << "Potions left: " << potions << "\n";
+        Sleep(1500);
     }
     else
     {
         cout << "You have no potions left! Go to shop to buy more.\n";
+        Sleep(700);
     }
 }
 
 void showStats()
 {
     cout << "\n--- Player Stats ---\n\n";
+    Sleep(500);
     cout << "Health: " << pHealth << "/" << pMaxHealth << endl;
+    Sleep(150);
     cout << "Attack: " << pAttack << endl;
+    Sleep(150);
     cout << "Gold: " << pGold << endl;
+    Sleep(150);
     cout << "Potions: " << pPotions << endl;
+    Sleep(150);
     cout << "Score: " << pScore << endl;
+    Sleep(150);
     cout << "streak: " << pStreak << endl;
+    Sleep(150);
     cout << "Difficulty level: " << pBattlesWon << "\n";
-    // cout << "High Score: " << highScore << "\n\n";
+    Sleep(500);
+
+    ifstream hsFile("highscore.txt");
+    int highScore = 0, highLevel = 0;
+    if (hsFile.is_open())
+    {
+        hsFile >> highScore;
+        hsFile >> highLevel;
+        hsFile.close();
+        cout << "Current High Score: " << highScore << " | Level: " << highLevel << "\n";
+        Sleep(500);
+    }
+    else
+    {
+        cout << "No high score recorded yet.\n";
+        Sleep(500);
+    }
 }
 
 void trainPlayer(int *attack, int *maxhealth, int *health, int &gold)
@@ -393,15 +499,21 @@ void trainPlayer(int *attack, int *maxhealth, int *health, int &gold)
     cout << "       Training Grounds      ";
     cout << "\n----------------------------\n";
     cout << "Pain is temporary, glory is forever!\n\n";
+    Sleep(1000);
 
     while (true)
     {
         cout << "Gold: " << gold << "\n";
+        Sleep(250);
         cout << "Current Attack: " << *attack << "\n";
+        Sleep(250);
         cout << "Current Max Health: " << *maxhealth << "\n\n";
+        Sleep(300);
 
-        cout << "1. Practice Sparring (+2 Attack)  [30 Gold]\n";
+        cout << "1. Practice Sparring (+1 Attack)  [20 Gold]\n";
+        Sleep(250);
         cout << "2. Endurance Run   (+10 Max HP)   [70 Gold]\n";
+        Sleep(250);
         cout << "3. Return to Menu\n";
 
         int choice;
@@ -411,12 +523,13 @@ void trainPlayer(int *attack, int *maxhealth, int *health, int &gold)
         switch (choice)
         {
         case 1:
-            if (gold >= 30)
+            if (gold >= 20)
             {
-                gold -= 30;
-                *attack += 2;
+                gold -= 20;
+                *attack += 1;
                 Sleep(1000); // Pause for 1 second to simulate training
                 cout << "You feel stronger! Attack is now " << *attack << ".\n";
+                Sleep(500);
             }
             else
             {
@@ -431,6 +544,7 @@ void trainPlayer(int *attack, int *maxhealth, int *health, int &gold)
                 *health += 10;
                 Sleep(1000); // Pause for 1 second to simulate training
                 cout << "You feel healthier! Max HP +10 and current health +10\n";
+                Sleep(500);
             }
             else
             {
@@ -450,5 +564,117 @@ void trainPlayer(int *attack, int *maxhealth, int *health, int &gold)
 void saveGame()
 {
     cout << "\n--- Saving Game ---\n\n";
-    // Save game logic will go here
+    ofstream saveFile("dungeon_save.txt");
+
+    if (saveFile.is_open())
+    {
+        int checkSum = (pHealth + pMaxHealth + pAttack + pGold + pPotions + pScore + pBattlesWon + pStreak) * 4;
+
+        saveFile << pHealth * 30 << "\n";
+        saveFile << pMaxHealth << "\n";
+        saveFile << checkSum << "\n";
+        saveFile << pAttack * 21 << "\n";
+        saveFile << pGold * 24 << "\n";
+        saveFile << pPotions * 100 << "\n";
+        saveFile << pScore << "\n";
+        saveFile << pBattlesWon << "\n";
+        saveFile << pStreak << "\n";
+
+        saveFile.close();
+
+        cout << "Progress saved successfully to 'dungeon_save.txt'!\n";
+    }
+    else
+    {
+        cout << "Error saving game. Please try again later.\n";
+    }
+}
+
+void loadGame()
+{
+    int tHealth, tmaxHealth, tAttack, tGold, tPotions, tScore, tBattlesWon, tStreak, tCheck;
+    int encHealth, encAttack, encGold, encPotions;
+    ifstream saveFile("dungeon_save.txt");
+    if (saveFile.is_open())
+    {
+        saveFile >> encHealth;
+        saveFile >> tmaxHealth;
+        saveFile >> tCheck;
+        saveFile >> encAttack;
+        saveFile >> encGold;
+        saveFile >> encPotions;
+        saveFile >> tScore;
+        saveFile >> tBattlesWon;
+        saveFile >> tStreak;
+        saveFile.close();
+
+        tHealth = encHealth / 30;
+        tAttack = encAttack / 21;
+        tGold = encGold / 24;
+        tPotions = encPotions / 100;
+
+        int calculatedCheckSum = (tHealth + tmaxHealth + tAttack + tGold + tPotions + tScore + tBattlesWon + tStreak) * 4;
+
+        if (calculatedCheckSum == tCheck)
+        {
+            pHealth = tHealth;
+            pMaxHealth = tmaxHealth;
+            pAttack = tAttack;
+            pGold = tGold;
+            pPotions = tPotions;
+            pScore = tScore;
+            pBattlesWon = tBattlesWon;
+            pStreak = tStreak;
+            cout << "\nSave file found! Welcome back, hero!\n";
+            cout << "Loaded: " << pGold << " Gold, Level " << pBattlesWon << " with " << pHealth << "/" << pMaxHealth << " HP.\n";
+        }
+        else
+        {
+            cout << "\nSECURITY ALERT: Save file corrupted or tampered with!\n";
+            Sleep(250);
+            cout << "Deleting corrupted save file...\n";
+            Sleep(500);
+            cout << "Starting a new adventure now...\n";
+            Sleep(1500);
+
+            remove("dungeon_save.txt");
+        }
+
+        Sleep(1500);
+    }
+    else
+    {
+        cout << "\nNo save file found. Starting a new adventure!\n";
+        Sleep(1500);
+    }
+}
+
+void updateHighScore()
+{
+    int currentHighScore = 0, currentHighLevel = 0;
+    ifstream readFile("highscore.txt");
+    if (readFile.is_open())
+    {
+        readFile >> currentHighScore;
+        readFile >> currentHighLevel;
+        readFile.close();
+    }
+
+    if (pScore > currentHighScore)
+    {
+        ofstream writeFile("highscore.txt");
+        if (writeFile.is_open())
+        {
+            writeFile << pScore << "\n";
+            writeFile << pBattlesWon << "\n";
+            writeFile.close();
+            cout << "New High Score! Score: " << pScore << ", Level: " << pBattlesWon << "\n";
+            Sleep(800);
+        }
+    }
+    else
+    {
+        cout << "Current High Score remains: " << currentHighScore << ", Level: " << currentHighLevel << "\n";
+        Sleep(800);
+    }
 }
