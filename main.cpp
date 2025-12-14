@@ -14,31 +14,32 @@
 
 using namespace std;
 
-// Player Stats
+
+// Player Stats (global for simplicity)
 int pHealth = 100;
 int pMaxHealth = 100;
 int pAttack = 15;
-int pDefense = 5;
+// int pDefense = 5; // kept intentionally commented out — no defense implementation yet
 int pGold = 50;
 int pPotions = 1;
 int pScore = 0;
-int pBattlesWon = 0;
-int pStreak = 0;
+int pBattlesWon = 0; // difficulty/time progression proxy
+int pStreak = 0;     // used to gate resting and show momentum
 
 const int NUM_ENEMY_TYPES = 5;
 string enemyNames[NUM_ENEMY_TYPES] = {"Green Slime", "Goblin", "Bandit", "Orc Captain", "Red Dragon"};
 
-// Stats: [HP, Attack]
+// enemyStats: column 0 = HP, column 1 = Attack
 int enemyStats[NUM_ENEMY_TYPES][2] = {
-    {20, 3},  // Index 0: Slime (Free win)
-    {40, 8},  // Index 1: Goblin (Fair fight)
-    {60, 12}, // Index 2: Bandit (Needs potions)
-    {90, 18}, // Index 3: Orc (Very dangerous)
-    {150, 25} // Index 4: Dragon (You need upgrades to survive)
+    {20, 3},  // Index 0: Slime (throwaway early enemy)
+    {40, 8},  // Index 1: Goblin (starter challenge)
+    {60, 12}, // Index 2: Bandit (needs some resource use)
+    {90, 18}, // Index 3: Orc (dangerous if unprepared)
+    {150, 25} // Index 4: Dragon (pray lil bro)
 };
 
-// function prototypes
 
+// Function prototypes
 void showMainMenu();
 void startCombat();
 void visitShop(int &gold, int &potions);
@@ -54,10 +55,13 @@ void loadGame();
 void updateHighScore();
 void wait(int ms);
 
+// Note: int is sufficient for expected gameplay duration
 int main()
 {
     srand(time(0));
-    loadGame(); // Load player stats from save file
+
+    // Try to load an existing save. If it fails, the game starts fresh.
+    loadGame();
 
     int choice;
     bool isRunning = true;
@@ -68,8 +72,15 @@ int main()
 
     while (isRunning)
     {
-        showMainMenu();
+        showMainMenu(); // Display the main menu
         cin >> choice;
+        if (!cin)
+        {
+            cout << "Invalid input. Please enter a number.\n";
+            cin.clear();
+            cin.ignore(1000, '\n');
+            continue;
+        }
 
         switch (choice)
         {
@@ -93,7 +104,7 @@ int main()
             break;
         case 7:
             saveGame();
-            isRunning = false;
+            isRunning = false; // exit loop after saving
             break;
         default:
             cout << "Invalid choice. Please try again." << endl;
@@ -106,7 +117,8 @@ int main()
     return 0;
 }
 
-// main menu loop
+
+// UI helpers
 void showMainMenu()
 {
     cout << "\n--- Main Menu ---" << "\n\n";
@@ -128,72 +140,82 @@ void showMainMenu()
     cout << "Enter your choice: ";
 }
 
+// Apply damage and clamp to zero. tiny helper so you don't print negatives.
 void applyDamage(int *targetHP, int damage)
 {
     *targetHP -= damage;
     if (*targetHP < 0)
     {
-        *targetHP = 0;
+        *targetHP = 0; // show zero instead of -12
     }
 }
 
+
+// Magic logic
 int recursiveMagic(int powerlevel)
 {
-    // Base Case: If level is 0, damage is 0
+    // this returns: damage = 15 + 5 * powerlevel (for powerlevel >= 0).
     if (powerlevel <= 0)
     {
-        return 25;
+        return 15; // base damage at level 0
     }
     return 5 + recursiveMagic(powerlevel - 1);
 }
 
+// 20% chance to double the provided damage. Uses pointer to mutate the damage inline.
 bool checkCritical(int *damage)
 {
-    // 20% chance to double damage
     if (rand() % 5 == 0)
     {
-        *damage = *damage * 2; // Modify the value at the address
+        *damage = *damage * 2; // Double it, feel the chaos.
         return true;
     }
     return false;
 }
 
+
+// Combat loop
 void startCombat()
 {
-    int magicUses = 2;
+    int magicUses = 2; // limited uses per battle so it's special
     cout << "\n--- Combat Started ---\n\n";
+
     int enemyIndex;
-    if (pBattlesWon < 3)
+    if (pBattlesWon < 4)
     {
-        // early Game: Only spawn Slime(0), Goblin(1), or Bandit(2)
+        // early Game: only spawn Slime(0), Goblin(1), or Bandit(2)
         // rand() % 3 returns 0, 1, or 2
         enemyIndex = rand() % 3;
     }
-    else if (pBattlesWon < 6)
+    else if (pBattlesWon < 8)
     {
-        // Mid Game: Spawn Slime(0), Goblin(1), Bandit(2), or Orc(3)
+        // Mid Game: spawn more variety
         enemyIndex = rand() % 4;
     }
     else
     {
-        // Late Game: Spawn anything (0 to 4), including Dragon
-        enemyIndex = rand() % 5;
+        // late Game: we intentionally exclude Green Slime (index 0)
+        // rand() % 4 -> 0..3, +1 -> 1..4
+        enemyIndex = (rand() % 4) + 1;
     }
 
     string eName = enemyNames[enemyIndex];
+
+    // scale enemies mildly with difficulty (battles won)
     int scalingHP = pBattlesWon * 5;
     int scalingATK = pBattlesWon * 2;
     int eHP = enemyStats[enemyIndex][0] + scalingHP;   // column 0 is HP
     int eATK = enemyStats[enemyIndex][1] + scalingATK; // column 1 is Attack
 
     cout << "--------------------------------------\n";
-    cout << "A wild " << eName << " appeared..." << endl;
+    cout << "     A wild " << eName << " appeared..." << endl;
     wait(500);
-    cout << "   HP: " << eHP << " | Attack: " << eATK << "\n";
+    cout << "     HP: " << eHP << "  |  Attack: " << eATK << "\n";
     wait(500);
     cout << "--------------------------------------\n";
     wait(600);
 
+    // Combat happens until either side reaches 0 HP.
     while (pHealth > 0 && eHP > 0)
     {
         cout << "\nYour HP: " << pHealth << " | Potions: " << pPotions << "\n";
@@ -205,10 +227,18 @@ void startCombat()
         int action;
         cout << ">>... ";
         cin >> action;
+        if (!cin)
+        {
+            cout << "Invalid Command!\n";
+            cin.clear();
+            cin.ignore(1000, '\n');
+            continue;
+        }
 
         if (action == 1)
         {
-            int damage = pAttack + (rand() % 5); // Random bonus damage between 0-4
+            // Regular attack: small random bonus and possible crit
+            int damage = pAttack + (rand() % 5); // 0..4
             if (checkCritical(&damage))
             {
                 cout << "CRITICAL HIT!\n";
@@ -220,32 +250,46 @@ void startCombat()
         }
         else if (action == 2)
         {
+            // Inventory potion: scaling heal; will not go above max health
             if (pPotions > 0)
             {
-                pHealth += 40;
-                if (pHealth > pMaxHealth)
+                int healAmount = pMaxHealth / 2 - 5; // intentional scaling so potions feel better late-game
+                if (pHealth >= (pMaxHealth-10))
                 {
-                    pHealth = pMaxHealth;
+                    cout << "You already have high health! Save your potion for later.\n";
+                    wait(800);
                 }
-                pPotions--;
-                cout << "You used a potion and restored 40 HP!\n";
-                cout << "Current HP: " << pHealth << "/" << pMaxHealth << "\n";
-                cout << "Potions left: " << pPotions << "\n";
+                else
+                {
+                    pHealth += healAmount;
+                    if (pHealth > pMaxHealth)
+                    {
+                        pHealth = pMaxHealth;
+                    }
+                    pPotions--;
+                    cout << "You used a potion and restored " << healAmount << " HP!\n";
+                    wait(500);
+                    cout << "Current HP: " << pHealth << "/" << pMaxHealth << "\n";
+                    wait(500);
+                    cout << "Potions left: " << pPotions << "\n";
+                }
                 wait(600);
             }
             else
             {
                 cout << "You have no potions left!\n";
+                wait(400);
             }
         }
         else if (action == 3)
         {
+            // Running has risk — 50% chance to escape. If you fail, enemy gets a free hit.
             if (rand() % 2 == 0)
             {
                 cout << "You successfully ran away! (Streak Reset)\n";
                 pStreak = 0;
                 wait(550);
-                return;
+                return; // exit combat early
             }
             else
             {
@@ -255,6 +299,7 @@ void startCombat()
         }
         else if (action == 4)
         {
+            // Ancient Magic: gated by experience (pBattlesWon) and limited uses per fight
             if (pBattlesWon > 1)
             {
                 if (magicUses > 0)
@@ -272,6 +317,7 @@ void startCombat()
             }
             else
             {
+                // Friendly message to prevent player confusion: you're simply not ready.
                 cout << "You try to cast magic, but you are too inexperienced!\n";
                 wait(500);
             }
@@ -279,64 +325,52 @@ void startCombat()
 
         else
         {
-            cout << "You hesitated (Inavild Input)...\n";
+            cout << "You hesitated (Invalid Input)...\n";
             cin.clear();
             cin.ignore(1000, '\n');
             wait(500);
+            continue;
         }
 
+        // Enemy turn — only if it's still alive
         if (eHP > 0)
         {
             int enemyDamage = eATK + (rand() % 5);
             pHealth -= enemyDamage;
+            if (pHealth < 0) pHealth = 0; // prevent negative HP display
             cout << "The " << eName << " attacked you for " << enemyDamage << " damage!\n";
             wait(400);
         }
     }
 
+    // Combat resolution
     if (pHealth <= 0)
     {
         cout << "\nYou have been defeated by the " << eName << "...\n";
-        wait(600);
+        wait(800);
+        cout << "Your adventure ends here.\n";
+        wait(800);
         updateHighScore();
         cout << "Deleting save file...\n";
         wait(1000);
 
-        // ofstream scoreFile("highscore.txt");
-        // if (scoreFile.is_open())
-        // {
-        //     scoreFile << "Your final score: " << pScore << "\n";
-        //     scoreFile << "Level reached: " << pBattlesWon << "\n";
-        //     scoreFile.close();
-
-        //     cout << "Your score (" << pScore << ") has been recorded in 'highscore.txt'.\n";
-
-        //     remove("dungeon_save.txt");
-        // }
-
-        if (remove("dungeon_save.txt") == 0)
-        {
-            cout << "Save file deleted. Your legacy ends here.\n";
-        }
-        else
-        {
-            cout << "No save file found to delete!\n";
-        }
+        // Savefile removal: this is intentionally destructive on death — the player loses progress.
+        remove("dungeon_save.txt");
         wait(1000);
         cout << "Game Over!\n";
         wait(1000);
         exit(0);
-        pHealth = 0;
     }
     else
     {
+        // Victory: grant rewards and increment progression
         cout << "\nVICTORY!! You defeated the " << eName << "!\n";
         wait(600);
-        int goldEarned = 12 + (enemyIndex * 5) + (pBattlesWon * 5); // Earn more gold for tougher enemies
+        int goldEarned = 12 + (enemyIndex * 5) + (pBattlesWon * 5); // reward scales with enemy toughness and player progression
         pGold += goldEarned;
         pScore += 20 + (enemyIndex * 10);
 
-        pBattlesWon++;
+        pBattlesWon++; // difficulty tick — enemies will be slightly stronger next fights
         pStreak++;
 
         cout << "You earned " << goldEarned << " gold!\n";
@@ -345,10 +379,12 @@ void startCombat()
     }
 }
 
+
+// Shop
 void visitShop(int &gold, int &potions)
 {
     cout << "\n--------------------------------------\n";
-    cout << "          THE TRAVELING MERCHANT       ";
+    cout << "       THE TRAVELING MERCHANT       ";
     cout << "\n--------------------------------------\n";
     wait(700);
     cout << " 'Got some rare things on sale, stranger!'\n\n";
@@ -368,6 +404,14 @@ void visitShop(int &gold, int &potions)
         int shopChoice;
         cout << ">>... ";
         cin >> shopChoice;
+        if (!cin)
+        {
+            cout << "Invalid input. Please enter a number.\n";
+            cin.clear();
+            cin.ignore(1000, '\n');
+            continue;
+        }
+
         switch (shopChoice)
         {
         case 1:
@@ -387,7 +431,7 @@ void visitShop(int &gold, int &potions)
         case 2:
             if (gold >= 90)
             {
-                pAttack += 6;
+                pAttack += 6; // direct upgrade, no inventory system for swords — simple and effective
                 gold -= 90;
                 cout << "You upgraded your sword! Attack is now " << pAttack << ".\n";
                 wait(400);
@@ -404,28 +448,33 @@ void visitShop(int &gold, int &potions)
             return;
         default:
             cout << "Invalid choice. Enter again\n";
+            cin.clear();
+            cin.ignore(1000, '\n');
             wait(200);
             break;
         }
     }
 }
 
+
+// Resting at camp — heals player but increases difficulty
 void campRest(int *currentHP, int maxHP, int *streak, int *battlesWon)
 {
     cout << "\n----   THE CAMPFIRE   ----\n\n";
-    wait(300);
+    wait(500);
 
     if (*streak < 2)
     {
         cout << "You aren't tired enough to rest!\n";
+        wait(500);
         cout << "You need a streak of 2. Current streak: " << *streak << "\n";
         return;
     }
 
-    cout << "You rest by the fire...\n";
+    cout << "You rest by the fire...\n\n";
     wait(2000); // Pause for 2 seconds to simulate resting
 
-    int healAmount = (maxHP / 2) + 10;
+    int healAmount = (maxHP / 2) + 10; // stronger heal than inventory potion — rare and special
     *currentHP += healAmount;
     if (*currentHP > maxHP)
     {
@@ -439,10 +488,13 @@ void campRest(int *currentHP, int maxHP, int *streak, int *battlesWon)
     cout << "BUT time has passed... The enemies have grown stronger!\n\n";
     wait(500);
 
+    // Resting progresses time/difficulty
     (*battlesWon)++;
-    *streak = 0;
+    *streak = 0; // reset momentum after a rest
 }
 
+
+// Healing outside of combat (inventory)
 void healPlayer(int &health, int &maxHealth, int &potions)
 {
     cout << "\n--- Healing (Inventory) ---\n\n";
@@ -455,7 +507,7 @@ void healPlayer(int &health, int &maxHealth, int &potions)
 
     if (potions > 0)
     {
-        health += 40;
+        health += maxHealth / 2 - 5; // scaling heal; will never exceed max health
         potions--;
 
         if (health > maxHealth)
@@ -474,6 +526,8 @@ void healPlayer(int &health, int &maxHealth, int &potions)
     }
 }
 
+
+// Stats / UI display
 void showStats()
 {
     cout << "\n--- Player Stats ---\n\n";
@@ -493,6 +547,7 @@ void showStats()
     cout << "Difficulty level: " << pBattlesWon << "\n";
     wait(500);
 
+    // Try to read high score from file
     ifstream hsFile("highscore.txt");
     int highScore = 0, highLevel = 0;
     if (hsFile.is_open())
@@ -510,6 +565,8 @@ void showStats()
     }
 }
 
+
+// Training
 void trainPlayer(int *attack, int *maxhealth, int *health, int &gold)
 {
     cout << "\n----------------------------\n";
@@ -537,6 +594,14 @@ void trainPlayer(int *attack, int *maxhealth, int *health, int &gold)
         int choice;
         cout << ">>... ";
         cin >> choice;
+        if (!cin)
+        {
+            cout << "Invalid input. Please enter a number.\n";
+            cin.clear();
+            cin.ignore(1000, '\n');
+            continue;
+        }
+        
 
         switch (choice)
         {
@@ -559,7 +624,7 @@ void trainPlayer(int *attack, int *maxhealth, int *health, int &gold)
             {
                 gold -= 70;
                 *maxhealth += 10;
-                *health += 10;
+                *health += 10; // heal you a bit when you increase max health
                 wait(1000); // Pause for 1 second to simulate training
                 cout << "You feel healthier! Max HP +10 and current health +10\n";
                 wait(500);
@@ -574,11 +639,15 @@ void trainPlayer(int *attack, int *maxhealth, int *health, int &gold)
             return;
         default:
             cout << "Invalid choice. Try again.\n";
-            break;
+            cin.clear();
+            cin.ignore(1000, '\n');
+            continue;
         }
     }
 }
 
+
+// Save / Load — with basic tamper detection
 void saveGame()
 {
     cout << "\n--- Saving Game ---\n\n";
@@ -586,14 +655,16 @@ void saveGame()
 
     if (saveFile.is_open())
     {
+        // Simple checksum to detect casual tampering
         int checkSum = (pHealth + pMaxHealth + pAttack + pGold + pPotions + pScore + pBattlesWon + pStreak) * 4;
 
-        saveFile << pHealth * 30 << "\n";
+        // Write encoded values for basic obfuscation — keeps casual editors honest
+        saveFile << pHealth * 30 << "\n"; // health encoded by 30
         saveFile << pMaxHealth << "\n";
         saveFile << checkSum << "\n";
-        saveFile << pAttack * 21 << "\n";
-        saveFile << pGold * 24 << "\n";
-        saveFile << pPotions * 100 << "\n";
+        saveFile << pAttack * 21 << "\n"; // attack encoded by 21
+        saveFile << pGold * 24 << "\n";   // gold encoded by 24
+        saveFile << pPotions * 100 << "\n"; // potions encoded by 100
         saveFile << pScore << "\n";
         saveFile << pBattlesWon << "\n";
         saveFile << pStreak << "\n";
@@ -610,6 +681,7 @@ void saveGame()
 
 void loadGame()
 {
+    // we're expecting the same format that saveGame writes. If checksum mismatches, we drop the file.
     int tHealth, tmaxHealth, tAttack, tGold, tPotions, tScore, tBattlesWon, tStreak, tCheck;
     int encHealth, encAttack, encGold, encPotions;
     ifstream saveFile("dungeon_save.txt");
@@ -626,6 +698,7 @@ void loadGame()
         saveFile >> tStreak;
         saveFile.close();
 
+        // decode with integer division. if any value is tampered with the checksum will fail
         tHealth = encHealth / 30;
         tAttack = encAttack / 21;
         tGold = encGold / 24;
@@ -635,6 +708,7 @@ void loadGame()
 
         if (calculatedCheckSum == tCheck)
         {
+            // Good save: apply values to global player state
             pHealth = tHealth;
             pMaxHealth = tmaxHealth;
             pAttack = tAttack;
@@ -648,6 +722,7 @@ void loadGame()
         }
         else
         {
+            // Tamper or corruption detected — be blunt with the player (and delete the file)
             cout << "\nSECURITY ALERT: Save file corrupted or tampered with!\n";
             wait(250);
             cout << "Deleting corrupted save file...\n";
@@ -667,6 +742,8 @@ void loadGame()
     }
 }
 
+
+// High score handling
 void updateHighScore()
 {
     int currentHighScore = 0, currentHighLevel = 0;
@@ -697,14 +774,14 @@ void updateHighScore()
     }
 }
 
-// Wrapper function to pause execution smoothly
+// Wrapper function to pause execution smoothly. Keeps UI readable.
 void wait(int ms)
 {
 #ifdef _WIN32
     // Windows: Uses simple milliseconds
     Sleep(ms);
 #else
-    // Linux/Mac: Uses the modern 'nanowait' (The replacement for uwait)
+    // Linux/Mac: Uses nanosleep
     struct timespec ts;
     ts.tv_sec = ms / 1000;              // Convert ms to seconds
     ts.tv_nsec = (ms % 1000) * 1000000; // Convert remainder to nanoseconds
