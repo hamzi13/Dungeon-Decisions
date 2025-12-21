@@ -30,7 +30,7 @@ The game gets harder the longer you survive.
 * **End Game:** The Red Dragon (Boss).
 
 ### ⛺ Risk/Reward Mechanics
-* **The Campfire:** You can heal, but resting advances time, making enemies stronger.
+* **The Campfire:** You can heal, but resting resets your streak.
 * **The Shop:** Decide between buying Potions (Survival) or upgrading your Sword (Power).
 
 ---
