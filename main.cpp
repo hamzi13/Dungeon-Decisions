@@ -27,6 +27,7 @@ int pBattlesWon = 0; // difficulty/time progression proxy
 int pStreak = 0;     // used to gate resting and show momentum
 
 const int NUM_ENEMY_TYPES = 5;
+const int SECRET_KEY = 123456789;
 string enemyNames[NUM_ENEMY_TYPES] = {"Green Slime", "Goblin", "Bandit", "Orc Captain", "Red Dragon"};
 
 // enemyStats: column 0 = HP, column 1 = Attack
@@ -122,21 +123,21 @@ int main()
 void showMainMenu()
 {
     cout << "\n--- Main Menu ---" << "\n\n";
-    wait(500);
+    wait(700);
     cout << "1. Start Combat (Hunt)" << endl;
-    wait(130);
+    wait(230);
     cout << "2. Visit Shop" << endl;
-    wait(130);
+    wait(230);
     cout << "3. View Stats" << endl;
-    wait(130);
+    wait(230);
     cout << "4. Drink Potion (Inventory)" << endl;
-    wait(130);
+    wait(230);
     cout << "5. Rest at Campfire (Requires Streak of 2)" << endl;
-    wait(130);
+    wait(230);
     cout << "6. Training Camp" << endl;
-    wait(130);
+    wait(230);
     cout << "7. Save Game & Exit" << "\n\n";
-    wait(130);
+    wait(230);
     cout << "Enter your choice: ";
 }
 
@@ -202,16 +203,16 @@ void startCombat()
     string eName = enemyNames[enemyIndex];
 
     // scale enemies mildly with difficulty (battles won)
-    int scalingHP = pBattlesWon * 5;
+    int scalingHP = pBattlesWon * 10;
     int scalingATK = pBattlesWon * 2;
     int eHP = enemyStats[enemyIndex][0] + scalingHP;   // column 0 is HP
     int eATK = enemyStats[enemyIndex][1] + scalingATK; // column 1 is Attack
 
     cout << "--------------------------------------\n";
     cout << "     A wild " << eName << " appeared..." << endl;
-    wait(500);
+    wait(700);
     cout << "     HP: " << eHP << "  |  Attack: " << eATK << "\n";
-    wait(500);
+    wait(700);
     cout << "--------------------------------------\n";
     wait(600);
 
@@ -219,9 +220,9 @@ void startCombat()
     while (pHealth > 0 && eHP > 0)
     {
         cout << "\nYour HP: " << pHealth << " | Potions: " << pPotions << "\n";
-        wait(250);
+        wait(550);
         cout << eName << "'s HP: " << eHP << "\n";
-        wait(250);
+        wait(550);
         cout << "Actions: [1] Attack  [2] Use Potion  [3] Run  [4] Ancient Magic (2 uses/battle)\n";
 
         int action;
@@ -246,7 +247,7 @@ void startCombat()
 
             applyDamage(&eHP, damage);
             cout << "You dealt " << damage << " damage to the " << eName << "!\n";
-            wait(300);
+            wait(700);
         }
         else if (action == 2)
         {
@@ -268,9 +269,9 @@ void startCombat()
                     }
                     pPotions--;
                     cout << "You used a potion and restored " << healAmount << " HP!\n";
-                    wait(500);
+                    wait(700);
                     cout << "Current HP: " << pHealth << "/" << pMaxHealth << "\n";
-                    wait(500);
+                    wait(700);
                     cout << "Potions left: " << pPotions << "\n";
                 }
                 wait(600);
@@ -278,7 +279,7 @@ void startCombat()
             else
             {
                 cout << "You have no potions left!\n";
-                wait(400);
+                wait(600);
             }
         }
         else if (action == 3)
@@ -294,7 +295,7 @@ void startCombat()
             else
             {
                 cout << "You failed to run away!\n";
-                wait(300);
+                wait(700);
             }
         }
         else if (action == 4)
@@ -304,11 +305,12 @@ void startCombat()
             {
                 if (magicUses > 0)
                 {
-                    int magicDamage = recursiveMagic(pBattlesWon);
+                    int effectiveLevel = (pBattlesWon > 2000) ? 2000 : pBattlesWon; // cap power level for sanity
+                    int magicDamage = recursiveMagic(effectiveLevel);
                     applyDamage(&eHP, magicDamage);
                     cout << "You cast Ancient Magic dealing " << magicDamage << " damage!\n";
                     magicUses--;
-                    wait(500);
+                    wait(700);
                 }
                 else
                 {
@@ -319,7 +321,7 @@ void startCombat()
             {
                 // Friendly message to prevent player confusion: you're simply not ready.
                 cout << "You try to cast magic, but you are too inexperienced!\n";
-                wait(500);
+                wait(700);
             }
         }
 
@@ -328,7 +330,7 @@ void startCombat()
             cout << "You hesitated (Invalid Input)...\n";
             cin.clear();
             cin.ignore(1000, '\n');
-            wait(500);
+            wait(700);
             continue;
         }
 
@@ -339,7 +341,7 @@ void startCombat()
             pHealth -= enemyDamage;
             if (pHealth < 0) pHealth = 0; // prevent negative HP display
             cout << "The " << eName << " attacked you for " << enemyDamage << " damage!\n";
-            wait(400);
+            wait(600);
         }
     }
 
@@ -388,18 +390,19 @@ void visitShop(int &gold, int &potions)
     cout << "\n--------------------------------------\n";
     wait(700);
     cout << " 'Got some rare things on sale, stranger!'\n\n";
-    wait(300);
+    wait(700);
 
     while (true)
     {
+        int swordCost = 90 + (pBattlesWon * 10); // sword gets more expensive as you progress
         cout << "You have: " << gold << " Gold\n";
         cout << "Potions:  " << potions << "\n\n";
-        wait(500);
+        wait(700);
 
         cout << "1. Buy Health Potion (40 Gold)\n";
-        wait(130);
-        cout << "2. Upgrade Sword (+6 Attack) (90 Gold)\n";
-        wait(130);
+        wait(230);
+        cout << "2. Upgrade Sword (+6 Attack) (" << swordCost << " Gold)\n";
+        wait(230);
         cout << "3. Leave Shop\n";
         int shopChoice;
         cout << ">>... ";
@@ -412,6 +415,7 @@ void visitShop(int &gold, int &potions)
             continue;
         }
 
+
         switch (shopChoice)
         {
         case 1:
@@ -420,53 +424,53 @@ void visitShop(int &gold, int &potions)
                 potions++;
                 gold -= 40;
                 cout << "You bought a Health Potion!\n";
-                wait(400);
+                wait(600);
             }
             else
             {
                 cout << "Not enough gold!\n";
-                wait(400);
+                wait(600);
             }
             break;
         case 2:
-            if (gold >= 90)
+            if (gold >= swordCost)
             {
-                pAttack += 6; // direct upgrade, no inventory system for swords — simple and effective
-                gold -= 90;
+                pAttack += 6; // direct upgrade, no inventory system for swords
+                gold -= swordCost;
                 cout << "You upgraded your sword! Attack is now " << pAttack << ".\n";
-                wait(400);
+                wait(600);
             }
             else
             {
-                cout << "Not enough gold!\n";
-                wait(400);
+                cout << "Not enough gold! You need " << swordCost << " gold.\n";
+                wait(600);
             }
             break;
         case 3:
             cout << "You leave the shop.\n";
-            wait(400);
+            wait(600);
             return;
         default:
             cout << "Invalid choice. Enter again\n";
             cin.clear();
             cin.ignore(1000, '\n');
-            wait(200);
+            wait(600);
             break;
         }
     }
 }
 
 
-// Resting at camp — heals player but increases difficulty
+// Resting at camp — heals player if streak is sufficient and resets streak
 void campRest(int *currentHP, int maxHP, int *streak, int *battlesWon)
 {
     cout << "\n----   THE CAMPFIRE   ----\n\n";
-    wait(500);
+    wait(700);
 
     if (*streak < 2)
     {
         cout << "You aren't tired enough to rest!\n";
-        wait(500);
+        wait(700);
         cout << "You need a streak of 2. Current streak: " << *streak << "\n";
         return;
     }
@@ -482,14 +486,15 @@ void campRest(int *currentHP, int maxHP, int *streak, int *battlesWon)
     }
 
     cout << "You wake up feeling refreshed! You restored " << healAmount << " HP.\n";
-    wait(500);
+    wait(700);
     cout << "Current HP: " << *currentHP << "/" << maxHP << "\n";
-    wait(500);
-    cout << "BUT time has passed... The enemies have grown stronger!\n\n";
-    wait(500);
+    wait(700);
+    // cout << "BUT time has passed... The enemies have grown stronger!\n\n";
+    cout << "However, resting has reset your streak.\n";
+    cout << "Your adventure continues...\n\n";
+    wait(700);
 
-    // Resting progresses time/difficulty
-    (*battlesWon)++;
+    // Resting resets the streak
     *streak = 0; // reset momentum after a rest
 }
 
@@ -501,7 +506,7 @@ void healPlayer(int &health, int &maxHealth, int &potions)
     if (health >= maxHealth)
     {
         cout << "You are already at full health! Save your potion\n";
-        wait(500);
+        wait(700);
         return;
     }
 
@@ -531,7 +536,7 @@ void healPlayer(int &health, int &maxHealth, int &potions)
 void showStats()
 {
     cout << "\n--- Player Stats ---\n\n";
-    wait(500);
+    wait(700);
     cout << "Health: " << pHealth << "/" << pMaxHealth << endl;
     wait(150);
     cout << "Attack: " << pAttack << endl;
@@ -545,7 +550,7 @@ void showStats()
     cout << "streak: " << pStreak << endl;
     wait(150);
     cout << "Difficulty level: " << pBattlesWon << "\n";
-    wait(500);
+    wait(700);
 
     // Try to read high score from file
     ifstream hsFile("highscore.txt");
@@ -556,12 +561,12 @@ void showStats()
         hsFile >> highLevel;
         hsFile.close();
         cout << "All time High Score: " << highScore << " | Level: " << highLevel << "\n";
-        wait(500);
+        wait(700);
     }
     else
     {
         cout << "No high score recorded yet.\n";
-        wait(500);
+        wait(700);
     }
 }
 
@@ -583,7 +588,7 @@ void trainPlayer(int *attack, int *maxhealth, int *health, int &gold)
         cout << "Current Attack: " << *attack << "\n";
         wait(250);
         cout << "Current Max Health: " << *maxhealth << "\n\n";
-        wait(300);
+        wait(700);
 
         cout << "1. Practice Sparring (+2 Attack)  [30 Gold]\n";
         wait(250);
@@ -612,7 +617,7 @@ void trainPlayer(int *attack, int *maxhealth, int *health, int &gold)
                 *attack += 2;
                 wait(1000); // Pause for 1 second to simulate training
                 cout << "You feel stronger! Attack is now " << *attack << ".\n";
-                wait(500);
+                wait(700);
             }
             else
             {
@@ -627,7 +632,7 @@ void trainPlayer(int *attack, int *maxhealth, int *health, int &gold)
                 *health += 10; // heal you a bit when you increase max health
                 wait(1000); // Pause for 1 second to simulate training
                 cout << "You feel healthier! Max HP +10 and current health +10\n";
-                wait(500);
+                wait(700);
             }
             else
             {
@@ -656,18 +661,18 @@ void saveGame()
     if (saveFile.is_open())
     {
         // Simple checksum to detect casual tampering
-        int checkSum = (pHealth + pMaxHealth + pAttack + pGold + pPotions + pScore + pBattlesWon + pStreak) * 4;
+        int checkSum = (pHealth + pMaxHealth + pAttack + pGold + pPotions + pScore + pBattlesWon + pStreak) * 13;
 
         // Write encoded values for basic obfuscation — keeps casual editors honest
-        saveFile << pHealth * 30 << "\n"; // health encoded by 30
-        saveFile << pMaxHealth << "\n";
-        saveFile << checkSum << "\n";
-        saveFile << pAttack * 21 << "\n"; // attack encoded by 21
-        saveFile << pGold * 24 << "\n";   // gold encoded by 24
-        saveFile << pPotions * 100 << "\n"; // potions encoded by 100
-        saveFile << pScore << "\n";
-        saveFile << pBattlesWon << "\n";
-        saveFile << pStreak << "\n";
+        saveFile << (pHealth ^ SECRET_KEY) << "\n"; // health encoded by 30
+        saveFile << (pMaxHealth ^ SECRET_KEY) << "\n";
+        saveFile << (checkSum ^ SECRET_KEY) << "\n";
+        saveFile << (pAttack ^ SECRET_KEY) << "\n"; // attack encoded by 21
+        saveFile << (pGold ^ SECRET_KEY) << "\n";   // gold encoded by 24
+        saveFile << (pPotions ^ SECRET_KEY) << "\n"; // potions encoded by 100
+        saveFile << (pScore ^ SECRET_KEY) << "\n";
+        saveFile << (pBattlesWon ^ SECRET_KEY) << "\n";
+        saveFile << (pStreak ^ SECRET_KEY) << "\n";
 
         saveFile.close();
 
@@ -683,28 +688,35 @@ void loadGame()
 {
     // we're expecting the same format that saveGame writes. If checksum mismatches, we drop the file.
     int tHealth, tmaxHealth, tAttack, tGold, tPotions, tScore, tBattlesWon, tStreak, tCheck;
-    int encHealth, encAttack, encGold, encPotions;
+    int encHealth, encMaxHealth, encCheck, encAttack, encGold, encPotions, encScore, encBattles, encStreak;
     ifstream saveFile("dungeon_save.txt");
     if (saveFile.is_open())
     {
+        // Read the "scrambled" numbers
         saveFile >> encHealth;
-        saveFile >> tmaxHealth;
-        saveFile >> tCheck;
+        saveFile >> encMaxHealth;
+        saveFile >> encCheck;
         saveFile >> encAttack;
         saveFile >> encGold;
         saveFile >> encPotions;
-        saveFile >> tScore;
-        saveFile >> tBattlesWon;
-        saveFile >> tStreak;
+        saveFile >> encScore;
+        saveFile >> encBattles;
+        saveFile >> encStreak;
         saveFile.close();
 
-        // decode with integer division. if any value is tampered with the checksum will fail
-        tHealth = encHealth / 30;
-        tAttack = encAttack / 21;
-        tGold = encGold / 24;
-        tPotions = encPotions / 100;
+        // DECRYPT: Apply the XOR key again to get original values
+        tHealth = encHealth ^ SECRET_KEY;
+        tmaxHealth = encMaxHealth ^ SECRET_KEY;
+        tCheck = encCheck ^ SECRET_KEY;
+        tAttack = encAttack ^ SECRET_KEY;
+        tGold = encGold ^ SECRET_KEY;
+        tPotions = encPotions ^ SECRET_KEY;
+        tScore = encScore ^ SECRET_KEY;
+        tBattlesWon = encBattles ^ SECRET_KEY;
+        tStreak = encStreak ^ SECRET_KEY;
 
-        int calculatedCheckSum = (tHealth + tmaxHealth + tAttack + tGold + tPotions + tScore + tBattlesWon + tStreak) * 4;
+        // Recalculate checksum to verify integrity
+        int calculatedCheckSum = (tHealth + tmaxHealth + tAttack + tGold + tPotions + tScore + tBattlesWon + tStreak) * 13;
 
         if (calculatedCheckSum == tCheck)
         {
@@ -726,7 +738,7 @@ void loadGame()
             cout << "\nSECURITY ALERT: Save file corrupted or tampered with!\n";
             wait(250);
             cout << "Deleting corrupted save file...\n";
-            wait(500);
+            wait(700);
             cout << "Starting a new adventure now...\n";
             wait(1500);
 
